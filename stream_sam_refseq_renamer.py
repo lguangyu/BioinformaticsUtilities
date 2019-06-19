@@ -71,7 +71,7 @@ class SAMStreamRenamer(object):
 		sp = line.split("\t") # <tab> is the only valid separator in SAM
 		for i, s in enumerate(sp):
 			if s.startswith("SN:"):
-				sp[i] = self.encoder.encode(s[3:])
+				sp[i] = "SN:" + self.encoder.encode(s[3:])
 				break
 		return ("\t").join(sp)
 
