@@ -33,7 +33,7 @@ class SeqNameEncoder(dict):
 
 	def get_sid(self, seq_name):
 		"""
-		return a integral header id;
+		return an integral seq id;
 		return the existing result if encountered previously
 		"""
 		sid = self.setdefault(seq_name, len(self) + 1)
@@ -83,14 +83,17 @@ class SAMStreamRenamer(object):
 			return line
 		aln = self.SAMAlignemtRecord(line.split("\t"))
 		if aln.rname != "*":
+			# '*' is missing, no changes made
 			aln.rname = self.encoder.encode(aln.rname)
 		if (aln.rnext != "*") and (aln.rnext != "="):
+			# '*' is missing, '=' indicates identical to self.rname
+			# in both cases, no changes made
 			aln.rnext = self.encoder.encode(aln.rnext)
 		return ("\t").join(aln)
 
 	def process_line(self, sam_line):
 		"""
-		only response to the reference seqs and alignment section lines; change
+		only respond to the reference seqs and alignment section lines; change
 		reference seq names in those lines using self.encoder; other irrelavent
 		lines will directly pass through;
 		"""
@@ -101,7 +104,7 @@ class SAMStreamRenamer(object):
 			# other header lines are returned without change
 			return sam_line
 		else:
-			# rest are alignemtn records
+			# rest are alignment records
 			return self._process_alignment(sam_line)
 
 

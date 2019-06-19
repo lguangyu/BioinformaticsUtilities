@@ -13,25 +13,25 @@ def get_args():
 	return args
 
 
-class ContigFastaHeaderEncoder(dict):
-	def encode(self, header):
+class SeqNameEncoder(dict):
+	def encode(self, seq_name):
 		"""
-		encode an input header, return a string (new header) in format
-		c_00000000000000000001, c_00000000000000000002, ...
+		encode an input seq name, return a string (new name) in format
+		s_0000000000000001, s_0000000000000002, ...
 		if the input header has been encountered previously, old result will be
 		returned
 		"""
-		return "c_%020u" % self.get_hid(header)
+		return "s_%016u" % self.get_sid(seq_name)
 
-	def get_hid(self, header):
+	def get_sid(self, seq_name):
 		"""
-		return a integral header id;
+		return an integral seq id;
 		return the existing result if encountered previously
 		"""
-		hid = self.setdefault(header, len(self) + 1)
+		sid = self.setdefault(seq_name, len(self) + 1)
 		# debug
-		assert isinstance(hid, int), hid
-		return hid
+		#assert isinstance(sid, int), sid
+		return sid
 
 	def encode_by_regex_sub(self, matchobj):
 		# used as the callable as repl argument in re.sub
@@ -43,7 +43,7 @@ class ContigFastaHeaderEncoder(dict):
 def main():
 	args = get_args()
 	fasta_header_re = re.compile(r"^(>\S+).*$")
-	encoder = ContigFastaHeaderEncoder()
+	encoder = SeqNameEncoder()
 	# it is possible to not use formal fasta parser, since the format of fasta
 	# seq header line is distinct
 	# so simply do modification if it is a header, and throw everything else

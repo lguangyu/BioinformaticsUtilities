@@ -50,6 +50,7 @@ class FastAQSplitter(object):
 	@property
 	def _output_fhs(self):
 		try:
+			# got name mangling will be fine since using property()
 			return self.__ofhs
 		except AttributeError:
 			pass
