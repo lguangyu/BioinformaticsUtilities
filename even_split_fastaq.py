@@ -20,8 +20,8 @@ def get_args():
 		default = None, metavar = "prefix",
 		help = "output prefix (default: same as input)")
 	args = ap.parse_args()
-	if args.output_prefix is None:
-		args.output_prefix = args.input
+	if args.prefix is None:
+		args.prefix = args.input
 	return args
 
 
@@ -90,7 +90,7 @@ class FastAQSplitter(object):
 
 def main():
 	args = get_args()
-	with FastAQSplitter(args.format, args.num_splits, args.output_prefix) as sp:
+	with FastAQSplitter(args.format, args.num_splits, args.prefix) as sp:
 		sp.split(args.input)
 	return
 

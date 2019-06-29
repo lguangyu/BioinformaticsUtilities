@@ -1,0 +1,7 @@
+# mac junk
+.DS_Store
+
+# temp and develop file
+.tmp/
+.dev/
+*.swp
