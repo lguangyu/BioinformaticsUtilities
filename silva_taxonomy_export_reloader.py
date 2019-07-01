@@ -145,19 +145,21 @@ class SilvaTaxonomyDB(object):
 			rela_node = new_node
 		return rela_node
 
-	def from_exports(self, tax_path, acc_taxid):
+	@classmethod
+	def from_exports(cls, tax_path, acc_taxid):
 		"""
 		load SilvaTaxonomyDB from two SILVA export files
 
-		ARGUMENTS
+		ARGUMENTS (class method)
 		tax_path:
 		  exported txt of taxonomy node path (e.g. tax_slv_ssu_132.txt)
 		acc_taxid:
 		  exported accession to taxid map (e.g. tax_slv_ssu_132.acc_taxid)
 		"""
-		self._load_tax_path_tree(tax_path)
-		self._load_acc_taxid(acc_taxid)
-		return
+		new = SilvaTaxonomyDB()
+		new._load_tax_path_tree(tax_path)
+		new._load_acc_taxid(acc_taxid)
+		return new
 
 	def _load_tax_path_tree(self, tax_path):
 		"""
