@@ -296,11 +296,11 @@ class TestLoad(argparse.Action):
 
 def get_args():
 	class CompressLevel(int):
-		def __init__(self, *ka, **kw):
-			super(CompressLevel, self).__init__(*ka, **kw)
-			if (self < 1) or (self > 9):
+		def __new__(cls, *ka, **kw):
+			new = super(CompressLevel, cls).__new__(cls, *ka, **kw)
+			if (new < 1) or (new > 9):
 				raise ValueError("compress level must between 1-9")
-			return
+			return new
 
 	ap = argparse.ArgumentParser()
 	ap.add_argument("-n", "--nodes-dump", type = str, required = True,
@@ -313,7 +313,7 @@ def get_args():
 		metavar = ".pkl.gz",
 		help = "pickle output to this <file> instead of stdout")
 	ap.add_argument("-l", "--compress-level", type = CompressLevel,
-		metavar = "1-9", default = 9,
+		metavar = "1-9", default = CompressLevel(9),
 		help = "output compress level (default: 9)")
 	ap.add_argument("--download", type = str, action = DownloadFromNCBIFTP,
 		metavar = ".tar.gz",
