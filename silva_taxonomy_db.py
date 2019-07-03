@@ -10,7 +10,15 @@ import argparse
 import collections
 import functools
 import os
+import subprocess
 import sys
+
+
+class SilvaTaxonomyResourceURL(object):
+	url_silva_acc_taxid = "https://www.arb-silva.de/fileadmin/silva_databases/"\
+		+ "current/Exports/taxonomy/tax_slv_ssu_132.acc_taxid"
+	url_silva_tax_path = "https://www.arb-silva.de/fileadmin/silva_databases/"\
+		+ "current/Exports/taxonomy/tax_slv_ssu_132.txt"
 
 
 class KeyNodeMap(dict):
@@ -89,7 +97,7 @@ class SilvaTaxonomyDBNode(object):
 		return reversed(path)
 
 
-class SilvaTaxonomyDB(object):
+class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 	"""
 	SILVA taxonomy database
 
@@ -156,7 +164,7 @@ class SilvaTaxonomyDB(object):
 		acc_taxid:
 		  exported accession to taxid map (e.g. tax_slv_ssu_132.acc_taxid)
 		"""
-		new = SilvaTaxonomyDB()
+		new = cls()
 		new._load_tax_path_tree(tax_path)
 		new._load_acc_taxid(acc_taxid)
 		return new
@@ -211,12 +219,48 @@ class SilvaTaxonomyDB(object):
 		return
 
 
+class DownloadFromSILVA(argparse.Action, SilvaTaxonomyResourceURL):
+	def __call__(self, parser, namespace, values, option_string):
+		output_dir = values # alias to add readability
+		for url in [self.url_silva_acc_taxid, self.url_silva_tax_path]:
+			file_name = url.split("/")[-1]
+			self._download(url, output_file = os.path.join(output_dir, file_name))
+		parser.exit(0)
+		return
+
+	def _download(self, url, output_file):
+		cmd = ["wget", "-O", output_file, url]
+		if subprocess.call(cmd):
+			sys.exit("system call to %s had non-zero return value\n"
+				"try manually download file from '%s'" % (str(cmd), url))
+		return
+
+
+def get_args():
+	ap = argparse.ArgumentParser()
+	ap.add_argument("-A", "--silva-acc-taxid", type = str, required = True,
+		metavar = "file",
+		help = "SILVA exported taxonomy accession to taxid map file (required)")
+	ap.add_argument("-P", "--silva-tax-path", type = str, required = True,
+		metavar = "file",
+		help = "SILVA exported taxonomic path file (required)")
+	ap.add_argument("--download", type = str, action = DownloadFromSILVA,
+		metavar = "dir",
+		help = "download data from SILVA and exit; downloaded files will be"
+			"[%s] and [%s]" % (DownloadFromSILVA.url_silva_acc_taxid,
+			DownloadFromSILVA.url_silva_tax_path))
+	args = ap.parse_args()
+	return args
+
+
+def main():
+	args = get_args()
+	# test load database
+	db = SilvaTaxonomyDB.from_exports(args.silva_tax_path, args.silva_acc_taxid)
+	# maybe write some more test here
+	#db.test() ?
+	return
+
+
 if __name__ == "__main__":
-	pass
-	# currently for lite test
-	#
-	#db = SilvaTaxonomyDB()
-	#db.from_exports(".dev/tax_slv_ssu_132.txt",
-	#	".dev/tax_slv_ssu_132.acc_taxid")
-	#path = db.query(accession = "AAAA02010377.14668.16277").get_path()
-	#print([i.scientific_name for i in path])
+	main()
