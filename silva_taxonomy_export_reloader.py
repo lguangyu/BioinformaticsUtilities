@@ -199,7 +199,7 @@ class SilvaTaxonomyDB(object):
 		"""
 		make database query, using any of taxid or accession;
 		if provided with multiple, lower piriority one(s) will be ignored;
-		
+
 		PRIORITY
 		taxid > accession (default is taxid)
 		"""
