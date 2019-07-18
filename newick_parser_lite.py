@@ -9,6 +9,7 @@ SYNOPSIS
 """
 
 import abc
+import functools
 import warnings
 
 
@@ -50,10 +51,10 @@ class NewickTreeNodeBase(abc.ABC):
 		self.children.append(child) # add child to children list
 		child.__parent = self # bind self to child's parent
 		return
-			
 
 	############################################################################
 	# these methods should only be used by parser
+	# not encouraged for derived classes to override
 	def parser_add_child(self, child):
 		"""
 		add a child in parsing process; extra logic and checks are done than
@@ -78,7 +79,7 @@ class NewickTreeNodeBase(abc.ABC):
 	def parser_add_bare_text(self, pos, s):
 		if self.__ready_for_next_node:
 			# in this case, parse the text as a child node and add as child
-			child = type(self).bare_text_as_node(s)
+			child = self.handler_bare_text_to_node(s)
 			child.start, child.end = pos, pos + len(s)
 			self.parser_add_child(child)
 			return
@@ -87,46 +88,50 @@ class NewickTreeNodeBase(abc.ABC):
 		# least one child in children list
 		else:
 			# treat the text as trailing text of the last added child node
-			self.children[-1].add_trailing_text(s)
+			self.children[-1].handler_trailing_text(s)
 		return
 
 	############################################################################
 	# these methods should only be used by parser
-	@classmethod
+	# derived classes are encouraged to override these methods to handle bare/
+	# trailing text
 	@abc.abstractmethod
-	def bare_text_as_node(cls, s):
+	def handler_bare_text_to_node(self, s, *ka, **kw) -> "new_node":
+		"""
+		handler of parsing bare text as node, example:
+		('foo','bar') -> 'foo' and 'bar' are node-like bare texts;
+		must return a new node instance, by default of the same type as self;
+
+		override method must accept calling signature (self, s, *ka, **kw),
+		where s is the input text, and other keyargs/keywords are passed to node
+		factory/ initializer;
+		"""
 		pass
 
-	@abc.abstractmethod
-	def add_trailing_text(self, s):
+	@classmethod
+	def handler_trailing_text(self, s) -> None:
+		"""
+		handler of parsing bare text as trailing text, example:
+		(foo,bar)'baz' -> 'baz' are trailing text, after a node group '(...)' is
+		closed
+
+		override mthod must accept calling signature (self, s),
+		where s is the input text;
+		"""
 		pass
 
 
-class NewickTreeNode(NewickTreeNodeBase):
-	@classmethod
-	def bare_text_as_node(cls, s, *ka, **kw):
-		if not isinstance(s, str):
-			raise TypeError("s must be str")
-		new = cls(*ka, **kw)
-		return new
-
-	def add_trailing_text(self, s):
-		if not isinstance(s, str):
-			raise TypeError("s must be str")
-		return
-
-
-class NewickTree(object):
+class NewickTreeBase(object):
 	# derived class can override this attribute to use a different node factory
-	# or type; however, the final type must inherit NewickTreeNodeBase class
-	node_t = NewickTreeNode
+	# type (must inherit NewickTreeNodeBase class)
+	node_t = NewickTreeNodeBase
 
 	@property
 	def root(self):
 		return self.__root
 
 	def __init__(self, *ka, **kw):
-		super(NewickTree, self).__init__(*ka, **kw)
+		super(NewickTreeBase, self).__init__(*ka, **kw)
 		self.__root = None
 		return
 
@@ -184,6 +189,34 @@ class NewickTree(object):
 		return tree
 
 
+################################################################################
+# example newick tree classes
+class NewickTreeLiteNode(NewickTreeNodeBase):
+	@property
+	def text(self):
+		return self._text
+	@text.setter
+	def text(self, value):
+		if not isinstance(value, str):
+			raise TypeError("text must be str")
+		self._text = value
+		return
+
+	def handler_bare_text_to_node(self, s, *ka, **kw) -> "new_node":
+		new = type(self)()
+		new.text = s # type check done in text.setter
+		return new
+
+	def handler_trailing_text(self, s):
+		self.text = s # type check done in text.setter
+		return
+
+
+class NewickTreeLite(NewickTreeBase):
+	node_t = NewickTreeLiteNode
+
+
 if __name__ == "__main__":
-	import unittest
-	t = NewickTree.from_string("12(aaa,cc(b,3):asd),(),,,")
+	#import unittest
+	#t = NewickTreeLite.from_string("12(aaa,cc(b,3):asd),(),,,")
+	pass
