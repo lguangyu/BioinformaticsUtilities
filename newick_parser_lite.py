@@ -26,10 +26,11 @@ root = tree.root
 
 import abc
 #import functools
+import itertools
 import warnings
 
 
-class NewickParseError(RuntimeError):
+class NewickFormatError(RuntimeError):
 	pass
 
 
@@ -51,16 +52,21 @@ class NewickTreeNodeBase(abc.ABC):
 		self.__children	= list()
 		self.start		= start # position in buf
 		self.end		= end # position in buf
-		self.__ready_for_next_node = True
+		self.__ready_for_next_node = True # intended to be used by parser only
 		return
 
 	def __repr__(self):
 		return "<%s[0x%x] pos=%s:%s>" % (type(self).__name__, id(self),
 			str(self.start), str(self.end))
 
+	def __iter__(self):
+		yield self
+		for i in itertools.chain(*map(iter, self.children)):
+			yield i
+
 	def add_child(self, child):
 		"""
-		add a node to children list, also bind self as child's parent;
+		add a node to children list, also bind self as child node's parent;
 		"""
 		if not isinstance(child, NewickTreeNodeBase):
 			raise TypeError("child must be NewickTreeNodeBase")
@@ -83,7 +89,7 @@ class NewickTreeNodeBase(abc.ABC):
 				"must be correctly set before adding as a child")
 		# in parsing, node and separator are necessary to come one after another
 		if not self.__ready_for_next_node:
-			raise NewickParseError("expected separator between two nodes at c: "
+			raise NewickFormatError("expected separator between two nodes at c: "
 				"%d" % child.start)
 		self.add_child(child)
 		self.__ready_for_next_node = False
@@ -108,7 +114,7 @@ class NewickTreeNodeBase(abc.ABC):
 		that node's handler_bare_text() to digest the string; this method is not
 		encouraged to be overriden in derived classes;
 
-		if a new node is created, its type is by default the same as type(self)
+		if a new node is created, its type is by default the same as type(self);
 		"""
 		if self.__ready_for_next_node:
 			# in this case, parse the text as a new node and add as child
@@ -134,19 +140,18 @@ class NewickTreeNodeBase(abc.ABC):
 		handler of parsing bare text as extra node information; in general all
 		characters other than the sequence controlling '(', ')' and ',' are bare
 		texts; example:
-		(foo,bar)baz -> baz are trailing text, after a node group '(...)' is
-		closed
+		(foo,bar)baz -> 'foo', 'bar' and 'baz' are all bare texts;
 
-		this handler determines how these texts are parsed and stored as node
-		information locally; note it is not the same as parser_put_bare_text()
+		this handler determines how these texts are parsed and stored as local
+		node information; note it is not the same as parser_put_bare_text()
 		method, which also finds the correct node to put input bare text, though
 		eventually parser_put_bare_text() calls handler_bare_text() internally
-		on the node where it finds to put the bare texts;
+		on the node where it finds to put these texts;
 
 		unlike parser_put_bare_text() method, handler_bare_text() is encouraged
 		to be overridden in derived classes; note that overriding method must
-		accept calling signature (self, s), where s is the input text, and any
-		return value will be discarded;
+		accept calling signature (self, s), where s is the input text; return
+		values of handler_bare_text(), if any, will all be discarded;
 		"""
 		pass
 
@@ -164,6 +169,9 @@ class NewickTreeBase(object):
 		super(NewickTreeBase, self).__init__(*ka, **kw)
 		self.__root = None
 		return
+
+	def __iter__(self):
+		return iter(self.root)
 
 	def parse(self, s):
 		"""
@@ -210,7 +218,7 @@ class NewickTreeBase(object):
 				# OLD: pop the stack
 				if top is root:
 					# should not reach root before the buffer string exhausts
-					raise NewickParseError("orphan ')' encountered at c: %d"\
+					raise NewickFormatError("orphan ')' encountered at c: %d"\
 						% pos)
 				# finalize the top parser
 				top.end = pos + 1
@@ -220,7 +228,7 @@ class NewickTreeBase(object):
 		# check if top is root; if not, must have ummatched parenthese
 		# OLD: check if stack is clean
 		if top is not root:
-			raise NewickParseError("expected ')' to close '(' at c: %d"\
+			raise NewickFormatError("expected ')' to close '(' at c: %d"\
 				% top.start)
 		root.parser_put_bare_text(pos, s[last_pos:])
 		root.end = len(s)
@@ -261,6 +269,4 @@ class NewickTreeLite(NewickTreeBase):
 
 
 if __name__ == "__main__":
-	#import unittest
-	#t = NewickTreeLite.load_string("12(aaa,cc(b,3):asd),(),,,")
-	pass
+	import unittest

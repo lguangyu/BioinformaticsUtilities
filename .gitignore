@@ -5,3 +5,7 @@
 .tmp/
 .dev/
 *.swp
+
+# python3 junk
+__pycache__/
+*.pyc
