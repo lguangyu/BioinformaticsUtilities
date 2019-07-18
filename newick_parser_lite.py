@@ -6,10 +6,26 @@
 light-weight Newick tree parser in pure python implementation
 
 SYNOPSIS
+
+class MyNewickTreeNode(NewickTreeNodeBase):
+	def handler_bare_text(self, s):
+		# logics on how to parse bare text encountered, to info of current node
+		...
+
+class MyNewickTree(NewickTreeBase):
+	# must specify a derived class of node to use
+	node_t = MyNewickTreeNode
+
+tree = MyNewickTree.load_string(<input>)
+# or
+tree = MyNewickTree()
+tree.parse(<input>)
+# get the root
+root = tree.root
 """
 
 import abc
-import functools
+#import functools
 import warnings
 
 
@@ -44,7 +60,7 @@ class NewickTreeNodeBase(abc.ABC):
 
 	def add_child(self, child):
 		"""
-		add a node to children list, also bind self as child's parent
+		add a node to children list, also bind self as child's parent;
 		"""
 		if not isinstance(child, NewickTreeNodeBase):
 			raise TypeError("child must be NewickTreeNodeBase")
@@ -53,12 +69,13 @@ class NewickTreeNodeBase(abc.ABC):
 		return
 
 	############################################################################
-	# these methods should only be used by parser
+	# these methods should only be used during parsing
 	# not encouraged for derived classes to override
 	def parser_add_child(self, child):
 		"""
-		add a child in parsing process; extra logic and checks are done than
-		bare adding a child
+		add a child during parsing; extra logic and checks are done than simply
+		adding a node; these checks are related to format checking, while not
+		required in other cases;
 		"""
 		if (not isinstance(child, NewickTreeNodeBase))\
 			or (child.start is None):
@@ -73,50 +90,63 @@ class NewickTreeNodeBase(abc.ABC):
 		return
 
 	def parser_add_separator(self):
+		"""
+		called when parser encounters a separator ',';
+		a separator is expected between two nodes, otherwise raise error when
+		trying adding the second node;
+		"""
 		self.__ready_for_next_node = True
 		return
 
-	def parser_add_bare_text(self, pos, s):
+	def parser_put_bare_text(self, pos, s):
+		"""
+		called when parser encounters a substring looks like bare text; bare
+		texts are any characters other than controlling chars '(', ')' and ',';
+
+		parser_put_bare_text() will first check locally to find a correct node
+		which should accpet this data (or create one if necessary), then call
+		that node's handler_bare_text() to digest the string; this method is not
+		encouraged to be overriden in derived classes;
+
+		if a new node is created, its type is by default the same as type(self)
+		"""
 		if self.__ready_for_next_node:
-			# in this case, parse the text as a child node and add as child
-			child = self.handler_bare_text_to_node(s)
-			child.start, child.end = pos, pos + len(s)
-			self.parser_add_child(child)
+			# in this case, parse the text as a new node and add as child
+			# note by default the type of new node is same as type(self)
+			new = type(self)()
+			new.start, new.end = pos, pos + len(s)
+			new.handler_bare_text(s)
+			self.parser_add_child(new)
 			return
-		#elif self.children:
-		# safe since if self.__ready_for_next_node is False there must be at
-		# least one child in children list
 		else:
-			# treat the text as trailing text of the last added child node
-			self.children[-1].handler_trailing_text(s)
+			# safe to not use 'elif self.children' here
+			# since if self.__ready_for_next_node is False, then there must be
+			# at least one node in self.children
+			self.children[-1].handler_bare_text(s)
 		return
 
 	############################################################################
-	# these methods should only be used by parser
-	# derived classes are encouraged to override these methods to handle bare/
-	# trailing text
+	# these methods should only be used during parsing
+	# derived classes must override these methods (of base class)
 	@abc.abstractmethod
-	def handler_bare_text_to_node(self, s, *ka, **kw) -> "new_node":
+	def handler_bare_text(self, s) -> None:
 		"""
-		handler of parsing bare text as node, example:
-		('foo','bar') -> 'foo' and 'bar' are node-like bare texts;
-		must return a new node instance, by default of the same type as self;
-
-		override method must accept calling signature (self, s, *ka, **kw),
-		where s is the input text, and other keyargs/keywords are passed to node
-		factory/ initializer;
-		"""
-		pass
-
-	@classmethod
-	def handler_trailing_text(self, s) -> None:
-		"""
-		handler of parsing bare text as trailing text, example:
-		(foo,bar)'baz' -> 'baz' are trailing text, after a node group '(...)' is
+		handler of parsing bare text as extra node information; in general all
+		characters other than the sequence controlling '(', ')' and ',' are bare
+		texts; example:
+		(foo,bar)baz -> baz are trailing text, after a node group '(...)' is
 		closed
 
-		override mthod must accept calling signature (self, s),
-		where s is the input text;
+		this handler determines how these texts are parsed and stored as node
+		information locally; note it is not the same as parser_put_bare_text()
+		method, which also finds the correct node to put input bare text, though
+		eventually parser_put_bare_text() calls handler_bare_text() internally
+		on the node where it finds to put the bare texts;
+
+		unlike parser_put_bare_text() method, handler_bare_text() is encouraged
+		to be overridden in derived classes; note that overriding method must
+		accept calling signature (self, s), where s is the input text, and any
+		return value will be discarded;
 		"""
 		pass
 
@@ -135,57 +165,76 @@ class NewickTreeBase(object):
 		self.__root = None
 		return
 
-	@classmethod
-	def from_string(cls, s, *ka, **kw):
-		# parser local variables
+	def parse(self, s):
+		"""
+		parse the content of string s (in Newick format) as a tree; the tree
+		instance before parsing must be empty;
+		"""
 		if not isinstance(s, str):
 			raise TypeError("s must be str")
-		# create tree
-		tree = cls(*ka, **kw)
-		tree.__root = tree.node_t()
+		if self.root is not None:
+			raise RuntimeError("use parse() on a non-emptry tree is prohibited")
+		# create root node
+		root = self.__root = self.node_t()
 		# parser local variables
-		stack = list([tree.root]) # used for parenthese matching
-		# keep tracking the current node
-		tree.root.start = last_pos = 0 # last_pos used to slice bare string
+		root.start = last_pos = 0 # last_pos is used to slice bare string
+		# keep tracking the top node
+		# top comes from the old approach using stack; since each node knows its
+		# parent node (parent node is unique), then popping the stack is equiv.
+		# to traverse upward to the parent;
+		top = root
 		# parsing
 		for pos, c in enumerate(s):
-			assert stack
-			top = stack[-1]
 			if c == "(":
+				# encounter a group opening '(' means should initialize a new
+				# parser and replace 'top' with it
+				# OLD: push the stack
 				if pos > last_pos:
 					junk_start = last_pos
 					warnings.warn("junk '%s' discarded at c: %d:%d"\
 						% (s[junk_start:pos], junk_start, pos))
 				# open a new node
-				new_node = tree.node_t(start = pos)
+				new_node = self.node_t(start = pos)
 				top.parser_add_child(new_node)
-				# parser work
-				stack.append(new_node)
+				top = new_node
 				last_pos = pos + 1
 			elif c == ",":
-				# this may pass empty string to top.parser_add_bare_text()
-				top.parser_add_bare_text(pos, s[last_pos:pos])
+				# this may pass empty string to top.parser_put_bare_text(), and
+				# same to all below parser_put_bare_text() calls
+				top.parser_put_bare_text(pos, s[last_pos:pos])
 				top.parser_add_separator()
 				last_pos = pos + 1
 			elif c == ")":
-				if top is tree.root:
+				# encounter a group closing ')' means should finalize the top
+				# parser and replace 'top' with its parent
+				# OLD: pop the stack
+				if top is root:
+					# should not reach root before the buffer string exhausts
 					raise NewickParseError("orphan ')' encountered at c: %d"\
 						% pos)
+				# finalize the top parser
 				top.end = pos + 1
-				# this may pass empty string to top.parser_add_bare_text()
-				top.parser_add_bare_text(pos, s[last_pos:pos])
-				stack.pop() # now can pop the stack
+				top.parser_put_bare_text(pos, s[last_pos:pos])
+				top = top.parent
 				last_pos = pos + 1
-		# check if stack is clean
-		top = stack[-1] # this is safe, we must at least have tree.root inside
-		# otherwise error raised in c == ')' case
-		if top is not tree.root:
-			# the stack is not clean -> must have ummatched parenthese
+		# check if top is root; if not, must have ummatched parenthese
+		# OLD: check if stack is clean
+		if top is not root:
 			raise NewickParseError("expected ')' to close '(' at c: %d"\
 				% top.start)
-		# this may pass empty string to top.parser_add_bare_text()
-		top.parser_add_bare_text(pos, s[last_pos:])
-		tree.root.end = len(s)
+		root.parser_put_bare_text(pos, s[last_pos:])
+		root.end = len(s)
+		return self
+
+	@classmethod
+	def load_string(cls, s, *ka, **kw):
+		"""
+		load and parse a string as a tree; keyargs/keywords are passed to the
+		tree factory/initializer;
+		"""
+		# create tree
+		tree = cls(*ka, **kw)
+		tree.parse(s)
 		return tree
 
 
@@ -202,12 +251,7 @@ class NewickTreeLiteNode(NewickTreeNodeBase):
 		self._text = value
 		return
 
-	def handler_bare_text_to_node(self, s, *ka, **kw) -> "new_node":
-		new = type(self)()
-		new.text = s # type check done in text.setter
-		return new
-
-	def handler_trailing_text(self, s):
+	def handler_bare_text(self, s):
 		self.text = s # type check done in text.setter
 		return
 
@@ -218,5 +262,5 @@ class NewickTreeLite(NewickTreeBase):
 
 if __name__ == "__main__":
 	#import unittest
-	#t = NewickTreeLite.from_string("12(aaa,cc(b,3):asd),(),,,")
+	#t = NewickTreeLite.load_string("12(aaa,cc(b,3):asd),(),,,")
 	pass
