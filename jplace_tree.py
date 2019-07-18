@@ -20,7 +20,7 @@ import functools
 import numbers
 import re
 # custom import
-import newick_parser_lite
+from . import newick_parser_lite
 
 
 class JplaceTreeFormatError(newick_parser_lite.NewickFormatError):
@@ -88,7 +88,7 @@ class JplaceTree(newick_parser_lite.NewickTreeBase):
 	def parse(self, *ka, **kw):
 		# this parse() method also stores internal node id for search
 		ret = super(JplaceTree, self).parse(*ka, **kw)
-		for i in self:
+		for i in self.all_nodes:
 			assert i.node_id not in self._id_map
 			self._id_map[i.node_id] = i
 		return ret
@@ -134,10 +134,13 @@ class JplaceTreeNodeGeo(JplaceTreeNode):
 		return
 
 	@property
-	def diameter(self):
-		return getattr(self, "_size", None)
-	@diameter.setter
-	def diameter(self, value):
+	def radius(self):
+		"""
+		radius of the bulb
+		"""
+		return getattr(self, "_size", 0)
+	@radius.setter
+	def radius(self, value):
 		if not isinstance(value, numbers.Real):
 			raise TypeError("diameter must be real valued")
 		self._size = value
@@ -156,7 +159,7 @@ class JplaceTreeNodeGeo(JplaceTreeNode):
 		else:
 			for node in self.children:
 				start_pos = node.place_h(start_pos)
-			self.h_pos = (self.children[0].h_pos + self.children[-1].h_pos) / 2
+			self.h_pos = (self.child_hmin + self.child_hmax) / 2
 			return start_pos # in this case no need to increment
 
 	def place_v(self, parent_height):
@@ -170,9 +173,93 @@ class JplaceTreeNodeGeo(JplaceTreeNode):
 			node.place_v(self.v_pos)
 		return
 
+	@property
+	def child_hmin(self):
+		"""
+		the h_pos of left-most direct child;
+		if no children, return self.h_pos;
+		"""
+		if self.children:
+			return self.children[0].h_pos
+		return self.h_pos
+	@property
+	def child_hmax(self):
+		"""
+		the h_pos of right-most direct child;
+		if no children, return self.h_pos;
+		"""
+		if self.children:
+			return self.children[-1].h_pos
+		return self.h_pos
+
+	@property
+	def subtree_hmin(self):
+		"""
+		the h_pos of left-most direct and indirect child;
+		if no children, return self.h_pos;
+		"""
+		if self.children:
+			return self.children[0].subtree_hmin
+		return self.h_pos
+	@property
+	def subtree_hmax(self):
+		"""
+		the h_pos of right-most direct and indirect child;
+		if no children, return self.h_pos;
+		"""
+		if self.children:
+			return self.children[-1].subtree_hmax
+		return self.h_pos
+
+	@property
+	def child_vmin(self):
+		"""
+		the minimal v_pos of direct child; if no children, return None;
+		"""
+		if self.children:
+			return min([i.v_pos for i in self.children])
+		return None
+	@property
+	def child_vmax(self):
+		"""
+		the minimal v_pos of direct child; if no children, return None;
+		"""
+		if self.children:
+			return max([i.v_pos for i in self.children])
+		return None
+
+	@property
+	def subtree_vmin(self):
+		"""
+		the minimal v_pos of self or any direct/indirect child;
+		if no children, return self.v_pos;
+		"""
+		return self.v_pos # this is always true
+	@property
+	def subtree_vmax(self):
+		"""
+		the maximal v_pos of self or any direct/indirect child;
+		if no children, return self.v_pos;
+		"""
+		v_poses = [i.v_pos for i in self.all_subtree_nodes]
+		return max(v_poses)
+
 
 class JplaceTreeGeo(JplaceTree):
 	node_t = JplaceTreeNodeGeo
+
+	@property
+	def hmin(self):
+		return self.root.subtree_hmin
+	@property
+	def hmax(self):
+		return self.root.subtree_hmax
+	@property
+	def vmin(self):
+		return self.root.subtree_vmin
+	@property
+	def vmax(self):
+		return self.root.subtree_vmax
 
 	def place_nodes(self):
 		"""

@@ -44,7 +44,27 @@ class NewickTreeNodeBase(abc.ABC):
 		return self.__children
 	@property
 	def n_children(self):
+		"""
+		number of direct nodes
+		"""
 		return len(self.children)
+
+	@property
+	def n_subtree_nodes(self):
+		"""
+		number of all direct/indirect nodes in subtree
+		"""
+		return self.__n_subtree_nodes
+
+	@property
+	def all_subtree_nodes(self):
+		"""
+		traverse all nodes in the subtree rooted at current node;
+		"""
+		yield self
+		for i in itertools.chain(*map(lambda x: x.all_subtree_nodes,
+			self.children)):
+			yield i
 
 	def __init__(self, start = None, end = None, *ka, **kw):
 		super(NewickTreeNodeBase, self).__init__(*ka, **kw)
@@ -52,17 +72,35 @@ class NewickTreeNodeBase(abc.ABC):
 		self.__children	= list()
 		self.start		= start # position in buf
 		self.end		= end # position in buf
-		self.__ready_for_next_node = True # intended to be used by parser only
+		self.__ready_for_next_node	= True # intended to be used by parser only
+		self.__n_subtree_nodes		= 0
 		return
 
 	def __repr__(self):
 		return "<%s[0x%x] pos=%s:%s>" % (type(self).__name__, id(self),
 			str(self.start), str(self.end))
 
-	def __iter__(self):
-		yield self
-		for i in itertools.chain(*map(iter, self.children)):
-			yield i
+	#def __iter__(self):
+	#	return iter(self.children)
+
+	def _lazy_count_subtree_nodes(self):
+		"""
+		count substree nodes not recursively; simply caculate from all direct
+		children; manually using this method may end up with error;
+		"""
+		self.__n_subtree_nodes =\
+			sum([i.n_subtree_nodes for i in self.children]) + self.n_children
+		return
+
+	def sort(self, *, reverse = False):
+		"""
+		sort children in ascending order based on their total number of nodes in
+		subtree; sort in descending order if reversed = True;
+		"""
+		if not self.children:
+			return
+		self.children.sort(key = lambda i: i.n_subtree_nodes, reverse = reverse)
+		return
 
 	def add_child(self, child):
 		"""
@@ -72,6 +110,11 @@ class NewickTreeNodeBase(abc.ABC):
 			raise TypeError("child must be NewickTreeNodeBase")
 		self.children.append(child) # add child to children list
 		child.__parent = self # bind self to child's parent
+		# upward recursion to calculate number of subtree nodes
+		node = self
+		while node is not None:
+			node._lazy_count_subtree_nodes()
+			node = node.parent
 		return
 
 	############################################################################
@@ -165,6 +208,10 @@ class NewickTreeBase(object):
 	def root(self):
 		return self.__root
 
+	@property
+	def n_total_nodes(self):
+		return self.root.n_subtree_nodes
+
 	def __init__(self, *ka, **kw):
 		super(NewickTreeBase, self).__init__(*ka, **kw)
 		self.__root = None
@@ -172,6 +219,19 @@ class NewickTreeBase(object):
 
 	def __iter__(self):
 		return iter(self.root)
+
+	@property
+	def all_nodes(self):
+		return iter(self.root.all_subtree_nodes)
+
+	def sort(self, *, reverse = False):
+		"""
+		sort each node's children in ascending order based on their total number
+		of subtree nodes; sort in ascending order if reverse = True;
+		"""
+		for i in self.all_nodes:
+			i.sort(reverse = reverse)
+		return
 
 	def parse(self, s):
 		"""
