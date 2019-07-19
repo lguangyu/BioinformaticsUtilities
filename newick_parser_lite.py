@@ -102,6 +102,37 @@ class NewickTreeNodeBase(abc.ABC):
 		self.children.sort(key = lambda i: i.n_subtree_nodes, reverse = reverse)
 		return
 
+	def is_child_of(self, node):
+		"""
+		return True if <self> is a direct/indirect child of <node>;
+		"""
+		if not isinstance(node, NewickTreeNodeBase):
+			raise TypeError("node must be NewickTreeNodeBase")
+		trig = self.parent # avoid (self is node) case
+		while trig is not None:
+			if trig is node:
+				return True
+			trig = trig.parent
+		return False
+
+	def is_parent_of(self, node):
+		"""
+		return True if <self> is a direct/indirect parent of <node>;
+		"""
+		if not isinstance(node, NewickTreeNodeBase):
+			raise TypeError("node must be NewickTreeNodeBase")
+		return node.is_child_of(self)
+
+	def _recount_subtree_nodes_recup(self):
+		"""
+		upward-recursion to re-calculate number of subtree nodes
+		"""
+		trig = self
+		while trig is not None:
+			trig._lazy_count_subtree_nodes()
+			trig = trig.parent
+		return
+
 	def add_child(self, child):
 		"""
 		add a node to children list, also bind self as child node's parent;
@@ -110,11 +141,7 @@ class NewickTreeNodeBase(abc.ABC):
 			raise TypeError("child must be NewickTreeNodeBase")
 		self.children.append(child) # add child to children list
 		child.__parent = self # bind self to child's parent
-		# upward recursion to calculate number of subtree nodes
-		node = self
-		while node is not None:
-			node._lazy_count_subtree_nodes()
-			node = node.parent
+		self._recount_subtree_nodes_recup()
 		return
 
 	############################################################################
