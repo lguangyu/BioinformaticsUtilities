@@ -14,7 +14,7 @@ class MyNewickTreeNode(NewickTreeNodeBase):
 
 class MyNewickTree(NewickTreeBase):
 	# must specify a derived class of node to use
-	node_t = MyNewickTreeNode
+	node_type = MyNewickTreeNode
 
 tree = MyNewickTree.load_string(<input>)
 # or
@@ -25,123 +25,21 @@ root = tree.root
 """
 
 import abc
-#import functools
-import itertools
 import warnings
+# custom lib
+from . import tree_base
 
 
 class NewickFormatError(RuntimeError):
 	pass
 
 
-class NewickTreeNodeBase(abc.ABC):
-	@property
-	def parent(self):
-		return self.__parent
-
-	@property
-	def children(self):
-		return self.__children
-	@property
-	def n_children(self):
-		"""
-		number of direct nodes
-		"""
-		return len(self.children)
-
-	@property
-	def n_subtree_nodes(self):
-		"""
-		number of all direct/indirect nodes in subtree
-		"""
-		return self.__n_subtree_nodes
-
-	@property
-	def all_subtree_nodes(self):
-		"""
-		traverse all nodes in the subtree rooted at current node;
-		"""
-		yield self
-		for i in itertools.chain(*map(lambda x: x.all_subtree_nodes,
-			self.children)):
-			yield i
-
+class NewickTreeNodeBase(tree_base.TreeNodeBase, abc.ABC):
 	def __init__(self, start = None, end = None, *ka, **kw):
 		super(NewickTreeNodeBase, self).__init__(*ka, **kw)
-		self.__parent	= None
-		self.__children	= list()
 		self.start		= start # position in buf
 		self.end		= end # position in buf
 		self.__ready_for_next_node	= True # intended to be used by parser only
-		self.__n_subtree_nodes		= 0
-		return
-
-	def __repr__(self):
-		return "<%s[0x%x] pos=%s:%s>" % (type(self).__name__, id(self),
-			str(self.start), str(self.end))
-
-	#def __iter__(self):
-	#	return iter(self.children)
-
-	def _lazy_count_subtree_nodes(self):
-		"""
-		count substree nodes not recursively; simply caculate from all direct
-		children; manually using this method may end up with error;
-		"""
-		self.__n_subtree_nodes =\
-			sum([i.n_subtree_nodes for i in self.children]) + self.n_children
-		return
-
-	def sort(self, *, reverse = False):
-		"""
-		sort children in ascending order based on their total number of nodes in
-		subtree; sort in descending order if reversed = True;
-		"""
-		if not self.children:
-			return
-		self.children.sort(key = lambda i: i.n_subtree_nodes, reverse = reverse)
-		return
-
-	def is_child_of(self, node):
-		"""
-		return True if <self> is a direct/indirect child of <node>;
-		"""
-		if not isinstance(node, NewickTreeNodeBase):
-			raise TypeError("node must be NewickTreeNodeBase")
-		trig = self.parent # avoid (self is node) case
-		while trig is not None:
-			if trig is node:
-				return True
-			trig = trig.parent
-		return False
-
-	def is_parent_of(self, node):
-		"""
-		return True if <self> is a direct/indirect parent of <node>;
-		"""
-		if not isinstance(node, NewickTreeNodeBase):
-			raise TypeError("node must be NewickTreeNodeBase")
-		return node.is_child_of(self)
-
-	def _recount_subtree_nodes_recup(self):
-		"""
-		upward-recursion to re-calculate number of subtree nodes
-		"""
-		trig = self
-		while trig is not None:
-			trig._lazy_count_subtree_nodes()
-			trig = trig.parent
-		return
-
-	def add_child(self, child):
-		"""
-		add a node to children list, also bind self as child node's parent;
-		"""
-		if not isinstance(child, NewickTreeNodeBase):
-			raise TypeError("child must be NewickTreeNodeBase")
-		self.children.append(child) # add child to children list
-		child.__parent = self # bind self to child's parent
-		self._recount_subtree_nodes_recup()
 		return
 
 	############################################################################
@@ -226,39 +124,8 @@ class NewickTreeNodeBase(abc.ABC):
 		pass
 
 
-class NewickTreeBase(object):
-	# derived class can override this attribute to use a different node factory
-	# type (must inherit NewickTreeNodeBase class)
-	node_t = NewickTreeNodeBase
-
-	@property
-	def root(self):
-		return self.__root
-
-	@property
-	def n_total_nodes(self):
-		return self.root.n_subtree_nodes
-
-	def __init__(self, *ka, **kw):
-		super(NewickTreeBase, self).__init__(*ka, **kw)
-		self.__root = None
-		return
-
-	def __iter__(self):
-		return iter(self.root)
-
-	@property
-	def all_nodes(self):
-		return iter(self.root.all_subtree_nodes)
-
-	def sort(self, *, reverse = False):
-		"""
-		sort each node's children in ascending order based on their total number
-		of subtree nodes; sort in ascending order if reverse = True;
-		"""
-		for i in self.all_nodes:
-			i.sort(reverse = reverse)
-		return
+class NewickTreeBase(tree_base.TreeBase, tree_base.TreeParserAbstract):
+	node_type = NewickTreeNodeBase
 
 	def parse(self, s):
 		"""
@@ -270,7 +137,8 @@ class NewickTreeBase(object):
 		if self.root is not None:
 			raise RuntimeError("use parse() on a non-emptry tree is prohibited")
 		# create root node
-		root = self.__root = self.node_t()
+		root = self.node_type()
+		self.force_set_root(root)
 		# parser local variables
 		root.start = last_pos = 0 # last_pos is used to slice bare string
 		# keep tracking the top node
@@ -289,7 +157,7 @@ class NewickTreeBase(object):
 					warnings.warn("junk '%s' discarded at c: %d:%d"\
 						% (s[junk_start:pos], junk_start, pos))
 				# open a new node
-				new_node = self.node_t(start = pos)
+				new_node = self.node_type(start = pos)
 				top.parser_add_child(new_node)
 				top = new_node
 				last_pos = pos + 1
@@ -331,29 +199,3 @@ class NewickTreeBase(object):
 		tree = cls(*ka, **kw)
 		tree.parse(s)
 		return tree
-
-
-################################################################################
-# example newick tree classes
-class NewickTreeLiteNode(NewickTreeNodeBase):
-	@property
-	def text(self):
-		return self._text
-	@text.setter
-	def text(self, value):
-		if not isinstance(value, str):
-			raise TypeError("text must be str")
-		self._text = value
-		return
-
-	def handler_bare_text(self, s):
-		self.text = s # type check done in text.setter
-		return
-
-
-class NewickTreeLite(NewickTreeBase):
-	node_t = NewickTreeLiteNode
-
-
-if __name__ == "__main__":
-	import unittest
