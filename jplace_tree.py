@@ -78,29 +78,45 @@ class JplaceTreeNode(newick_parser_lite.NewickTreeNodeBase,
 
 	def place_h(self, start_pos) -> "end_pos":
 		"""
-		find horizontal position for this node and all its children (if any);
-		starting from 'start_pos' (left most), and return the right-most leaf's
-		position + 1;
-		this is essentially bottom-up and left->right traversal;
+		find horizontal position for this node; if has no children, put itself
+		on <start_pos>, increment by 1 and return it; if has children, put
+		itself in the middle point of the left-most and right-most direct
+		children, and return the value of <start_pos> unchanged;
 		"""
 		if not self.children:
 			self.h_pos = start_pos
 			return start_pos + 1
 		else:
-			for node in self.children:
-				start_pos = node.place_h(start_pos)
 			self.h_pos = (self.child_hmin + self.child_hmax) / 2
 			return start_pos # in this case no need to increment
 
 	def place_v(self, parent_height):
 		"""
-		find vertical position for this node and all its children (if any);
-		starting from 'parent_height';
-		this is essentially top-down traversal (arbitrary horizontal order);
+		find vertical position for this node, place itself on <parent_height> +
+		self.parent_distance; not recursive into children;
 		"""
 		self.v_pos = parent_height + self.parent_distance
+		return
+
+	def subtree_place_h(self, start_pos):
+		"""
+		find horizontal position for this node and all its children (if any),
+		by recursively call place_h() method on all nodes in a bottom-up and
+		left-right traversal;
+		"""
 		for node in self.children:
-			node.place_v(self.v_pos)
+			start_pos = node.subtree_place_h(start_pos)
+		return self.place_h(start_pos)
+
+	def subtree_place_v(self, parent_height):
+		"""
+		find vertical position for this node, and all its children (if any),
+		starting from 'parent_height' by recursively call place_v() methods on
+		all nodes in a top-down traversal;
+		"""
+		self.place_v(parent_height)
+		for node in self.children:
+			node.subtree_place_v(self.v_pos)
 		return
 
 
@@ -132,6 +148,6 @@ class JplaceTree(newick_parser_lite.NewickTreeBase,
 		"""
 		place all nodes and assign their h_pos and v_pos values;
 		"""
-		self.root.place_h(0)
-		self.root.place_v(0)
+		self.root.subtree_place_h(0)
+		self.root.subtree_place_v(0)
 		return
