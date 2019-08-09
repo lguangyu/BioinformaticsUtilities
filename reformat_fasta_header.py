@@ -37,12 +37,14 @@ class SeqNameEncoder(dict):
 		# used as the callable as repl argument in re.sub
 		# re.sub will not call this if not matches,
 		# so safe to not implement handling None case
-		return self.encode(matchobj.group(1))
+		new_header = self.encode(matchobj.group(1))
+		# make sure fasta header are preserved
+		return (">" if matchobj.group(0).startswith(">") else "") + new_header
 
 
 def main():
 	args = get_args()
-	fasta_header_re = re.compile(r"^(>\S+).*$")
+	fasta_header_re = re.compile(r"^>(\S+).*$")
 	encoder = SeqNameEncoder()
 	# it is possible to not use formal fasta parser, since the format of fasta
 	# seq header line is distinct
