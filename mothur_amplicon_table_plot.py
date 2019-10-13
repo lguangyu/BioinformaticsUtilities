@@ -49,9 +49,10 @@ def get_args():
 		help = "OTU taxonomy mothur output, a.k.a. *.tax file (required)")
 	# output arguments
 	ag = ap.add_argument_group("output")
-	ag.add_argument("-O", "--output-prefix", type = str, required = True,
+	ag.add_argument("-O", "--output-prefix", type = str,
 		metavar = "prefix",
-		help = "prefix of outputs stdout (required)")
+		help = "prefix of outputs (default: same to <count-table>, or 'output' "
+			"if uses stdin)")
 	ag.add_argument("-l", "--level", type = str, default = "genus",
 		choices = TAX_LIST,
 		help = "taxonomic level to report (default: genus)")
@@ -75,6 +76,9 @@ def get_args():
 	args = ap.parse_args()
 	if args.input == "-":
 		args.input = sys.stdin
+	if args.output_prefix is None:
+		args.output_prefix = args.input if isinstance(args.input, str)\
+			else "output"
 	return args
 
 
@@ -182,6 +186,9 @@ class CountTableBase(object):
 
 	@property
 	def rela_abunds(self):
+		"""
+		get a copy of the count table with each row normailzed to its sum
+		"""
 		return self._cnt_table / self._cnt_table.sum(axis = 1, keepdims = True)
 
 	def sort_columns(self, method = "average_rank"):
@@ -199,14 +206,19 @@ class CountTableBase(object):
 		"""
 		nrow, ncol = self._cnt_table.shape
 		if method == "average_rank":
+			# first do an argsort of each row individually
 			rarg	= self._cnt_table.argsort(axis = 1)
+			# now calculate the total rank of each column
 			trank	= numpy.zeros(ncol, dtype = int)
 			for p in rarg:
 				trank[p] += numpy.arange(ncol)
+			# sort by the total rank should get the final order of the columns
+			# this index is in ascending order
 			index	= trank.argsort()
 		elif method == "average_value":
-			mval	= self.rela_abunds.mean(axis = 0)
-			index	= mval.argsort()
+			# calculate column-wise mean then do argsort should get the
+			# ascending indices of each column
+			index	= self.rela_abunds.mean(axis = 0).argsort()
 		else:
 			raise ValueError("unrecognized method '%s'" % method)
 		# reverse index, we need descending order
