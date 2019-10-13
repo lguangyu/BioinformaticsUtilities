@@ -207,7 +207,8 @@ class CountTableBase(object):
 		else:
 			raise ValueError("unrecognized method '%s'" % method)
 		# reverse index, we need descending order
-		index = numpy.flip(index)
+		#index = numpy.flip(index) # numpy<=1.14: filp(x, axis) axis is required
+		index = numpy.flip(index, 0)
 		self._col_tags = numpy.take(self._col_tags, index).tolist()
 		self._cnt_table = self._cnt_table[:, index]
 		return self
