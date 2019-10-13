@@ -4,9 +4,7 @@ import argparse
 import io
 import itertools
 import matplotlib
-import matplotlib.patches
 import matplotlib.pyplot
-import matplotlib.style
 import numpy
 import re
 import sys
@@ -57,6 +55,11 @@ def get_args():
 	ag.add_argument("-l", "--level", type = str, default = "genus",
 		choices = TAX_LIST,
 		help = "taxonomic level to report (default: genus)")
+	ag.add_argument("--sort-by", type = str, default = "average_value",
+		choices = ["average_rank", "average_value"],
+		help = "method to sort columns in outputs (default: average_value); "
+			"average_value: sort by column-wise average values; "
+			"average_rank: sort by column-wise average ranks")
 	ag.add_argument("-d", "--delimiter", type = Char, default = "\t",
 		metavar = "char",
 		help = "delimiter in the output table (default: <tab>)")
@@ -436,7 +439,7 @@ def main():
 	otu_list	= OTUCollection.from_otu_taxonomy_file(args.tax)
 	cnt_table	= OTUCountTable.from_otu_count_table_file(args.input)
 	tax_abund	= cnt_table.get_tax_rela_abund_table(otu_list, args.level)
-	tax_abund.sort_columns("average_value")
+	tax_abund.sort_columns(args.sort_by)
 	# save table
 	tax_abund.save_as_text(args.output_prefix + ".tsv", "%.4f", args.delimiter)
 	if args.with_plot:
