@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import functools
 import io
 import itertools
 import matplotlib
@@ -118,6 +119,28 @@ class OTU(object):
 		self.tax_list	= tax_list
 		return
 
+	@property
+	def tax_depth(self):
+		return len(self.tax_list)
+
+	def is_not_uncultured_tax(self, level):
+		return (level < self.tax_depth)\
+			and (not self.tax_list[level].startswith("uncultured"))
+
+	def _get_recursive_parent_taxonomy(self, level: int):
+		"""
+		get the parent-level taxonomy recursively
+		"""
+		if level < 0:
+			raise ValueError("level must be non-negative")
+		elif level == 0:
+			ret = ""
+		elif self.is_not_uncultured_tax(level):
+			ret = self.tax_list[level]
+		else:
+			ret = self._get_recursive_parent_taxonomy(level - 1)
+		return ret
+
 	def get_taxonomy(self, level):
 		"""
 		return the taxonomy at given level;
@@ -127,15 +150,16 @@ class OTU(object):
 		if isinstance(level, int):
 			if level < 0:
 				raise ValueError("level must be non-negative")
-			if level < len(self.tax_list):
+			elif self.is_not_uncultured_tax(level):
 				tax = self.tax_list[level]
 			else:
-				tax = "" # unclassified
+				tax = self._get_recursive_parent_taxonomy(level - 1)\
+					+ "_uncultured"
 		elif isinstance(level, str):
 			if level not in TAX_LIST:
 				raise ValueError("level as str must be one of: %s, got '%s'"\
 					% (str(TAX_LIST), level))
-			tax = self.tax_list[TAX_LIST.index(level)]
+			tax = self.get_taxonomy(TAX_LIST.index(level))
 		else:
 			raise TypeError("level must be str or int, not '%s'"\
 				% type(level).__name__)
@@ -223,9 +247,9 @@ class CountTableBase(object):
 			raise ValueError("unrecognized method '%s'" % method)
 		# reverse index, we need descending order
 		#index = numpy.flip(index) # numpy<=1.14: filp(x, axis) axis is required
-		index = numpy.flip(index, 0)
-		self._col_tags = numpy.take(self._col_tags, index).tolist()
-		self._cnt_table = self._cnt_table[:, index]
+		self._sort_index	= index = numpy.flip(index, 0)
+		self._col_tags		= numpy.take(self._col_tags, index).tolist()
+		self._cnt_table		= self._cnt_table[:, index]
 		return self
 
 	def save_as_text(self, file, fmt = "%f", delimiter = "\t"):
