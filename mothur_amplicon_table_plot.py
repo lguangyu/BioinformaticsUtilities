@@ -457,7 +457,7 @@ def plot(png, tax_abund: TaxonRelaAbundTable, use_num_taxons, title = ""):
 	# colorbar
 	axes = layout["colorbar"]
 	colorbar = figure.colorbar(heatmap, cax = axes, orientation = "horizontal")
-	colorbar.set_label("Abundance (%)")
+	colorbar.set_label("Relative abundance")
 	colorbar.outline.set_visible(False)
 
 	# title
