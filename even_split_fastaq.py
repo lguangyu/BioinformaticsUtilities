@@ -8,17 +8,17 @@ import os
 
 def get_args():
 	ap = argparse.ArgumentParser()
-	ap.add_argument("input", type = str,
-		help = "input FastA/FastQ file")
-	ap.add_argument("-f", "--format", type = str, required = True,
-		choices = ["fasta", "fastq"],
-		help = "file format (required)")
-	ap.add_argument("-n", "--num-splits", type = int, required = True,
-		metavar = "int",
-		help = "numbr of splits (required)")
-	ap.add_argument("-p", "--prefix", type = str,
-		default = None, metavar = "prefix",
-		help = "output prefix (default: same as input)")
+	ap.add_argument("input", type=str,
+		help="input FastA/FastQ file")
+	ap.add_argument("-f", "--format", type=str, required=True,
+		choices=["fasta", "fastq"],
+		help="file format (required)")
+	ap.add_argument("-n", "--num-splits", type=int, required=True,
+		metavar="int",
+		help="numbr of splits (required)")
+	ap.add_argument("-p", "--prefix", type=str,
+		default=None, metavar="prefix",
+		help="output prefix (default: same as input)")
 	args = ap.parse_args()
 	if args.prefix is None:
 		args.prefix = args.input
@@ -38,6 +38,7 @@ class FastAQSplitter(object):
 	@property
 	def num_splits(self):
 		return self._num_splits
+
 	@num_splits.setter
 	def num_splits(self, value):
 		if not isinstance(value, int):
@@ -61,7 +62,7 @@ class FastAQSplitter(object):
 				% (self.output_prefix, i, self.format)
 			if os.path.isfile(fn):
 				raise ValueError("'%s' already exist" % fn)
-			self.__ofhs.append(open(fn, "w", buffering = 65536))
+			self.__ofhs.append(open(fn, "w", buffering=65536))
 		return self.__ofhs
 
 	def __init__(self, fmt, num_splits, output_prefix):
@@ -71,7 +72,7 @@ class FastAQSplitter(object):
 		return
 
 	def split(self, input_file):
-		inseq_io = Bio.SeqIO.parse(input_file, format = self.format)
+		inseq_io = Bio.SeqIO.parse(input_file, format=self.format)
 		for seq, fh in zip(inseq_io, itertools.cycle(self._output_fhs)):
 			Bio.SeqIO.write(seq, fh, self.format)
 		return

@@ -8,19 +8,19 @@ import sys
 
 def get_args():
 	ap = argparse.ArgumentParser()
-	ap.add_argument("input", type = str, nargs = "?",
-		metavar = "json", default = "-",
-		help = "input json (default: stdin)")
-	ap.add_argument("-o", "--output", type = str,
-		metavar = "json", default = "-",
-		help = "write output json to this file instead of stdout")
-	ap.add_argument("-d", "--indent-char", type = str,
-		metavar = "<tab>|<space>|off",
-		choices = ["\t", " ", "off"], default = "\t",
-		help = "indentation character, if set to 'off', a single-line json will"
-			" be produced (default: <tab>)")
-	ap.add_argument("-S", "--no-sort-keys", action = "store_false",
-		help = "without sorting keys (default: off)")
+	ap.add_argument("input", type=str, nargs="?",
+		metavar="json", default="-",
+		help="input json (default: stdin)")
+	ap.add_argument("-o", "--output", type=str,
+		metavar="json", default="-",
+		help="write output json to this file instead of stdout")
+	ap.add_argument("-d", "--indent-char", type=str,
+		metavar="<tab>|<space>|off",
+		choices=["\t", " ", "off"], default="\t",
+		help="indentation character, if set to 'off', a single-line json will"
+         			" be produced (default: <tab>)")
+	ap.add_argument("-S", "--no-sort-keys", action="store_false",
+		help="without sorting keys (default: off)")
 	args = ap.parse_args()
 	# refine args
 	if args.input == "-":
@@ -32,7 +32,7 @@ def get_args():
 	return args
 
 
-def get_fh(file, mode = "r", *ka, open_factory = open, **kw) -> io.IOBase:
+def get_fh(file, mode="r", *ka, open_factory=open, **kw) -> io.IOBase:
 	"""
 	return a file handle, wrapper function to ensure safe invocation when used
 	used on an instance of file handle;
@@ -56,7 +56,7 @@ def get_fh(file, mode = "r", *ka, open_factory = open, **kw) -> io.IOBase:
 	elif isinstance(file, str):
 		fh = open_factory(file, mode, *ka, **kw)
 	else:
-		raise TypeError("file must be io.IOBase or str, not '%s'"\
+		raise TypeError("file must be io.IOBase or str, not '%s'"
 			% type(file).__name__)
 	return fh
 
@@ -65,8 +65,8 @@ def main():
 	args = get_args()
 	with get_fh(args.input, "r") as ifp:
 		with get_fh(args.output, "w") as ofp:
-			json.dump(json.load(ifp), ofp, indent = args.indent_char,
-				sort_keys = not args.no_sort_keys)
+			json.dump(json.load(ifp), ofp, indent=args.indent_char,
+				sort_keys=not args.no_sort_keys)
 	return
 
 
