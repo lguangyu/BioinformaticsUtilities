@@ -31,7 +31,7 @@ class KeyNodeMap(dict):
 		super(KeyNodeMap, self).__setitem__(key, node)
 		return node
 
-	@functools.wraps(add_node, assigned = ("__doc__"))
+	@functools.wraps(add_node, assigned=("__doc__"))
 	def __setitem__(self, *ka, **kw):
 		return self.add_node(*ka, **kw)
 
@@ -42,8 +42,9 @@ class SilvaTaxonomyDBNode(object):
 	each node can either be accessed via map from accession, scientific name
 	and/or taxid;
 	"""
-	def __init__(self, taxid, parent, *ka, tax_level = None,
-			scientific_name = None, accession = None, **kw):
+
+	def __init__(self, taxid, parent, *ka, tax_level=None,
+			scientific_name=None, accession=None, **kw):
 		super(SilvaTaxonomyDBNode, self).__init__(*ka, **kw)
 		if not isinstance(taxid, int):
 			raise TypeError("taxid must be int")
@@ -116,14 +117,14 @@ class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 
 	def _add_root(self):
 		root = SilvaTaxonomyDBNode(1, None,
-			tax_level = "root", scientific_name = "root", accession = "root")
+			tax_level="root", scientific_name="root", accession="root")
 		self._root_node = root
-		self.taxid_to_node.add_node(key = root.taxid, node = root)
-		self.acc_to_node.add_node(key = root.accession, node = root)
+		self.taxid_to_node.add_node(key=root.taxid, node=root)
+		self.acc_to_node.add_node(key=root.accession, node=root)
 		return
 
-	def path_walk(self, path: collections.deque, rela_node = None)\
-			-> ("remain path", SilvaTaxonomyDBNode):
+	def path_walk(self, path: collections.deque, rela_node=None)\
+                -> ("remain path", SilvaTaxonomyDBNode):
 		"""
 		walk down a path, continue if node already exists at each step; return
 		the last node accessed, and the remaining path at that point;
@@ -132,11 +133,11 @@ class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 			rela_node = self.root
 		# recursive walk
 		while bool(path) and (path[0] in rela_node.children):
-			rela_node = rela_node.children[path.popleft()] # path changed here
+			rela_node = rela_node.children[path.popleft()]  # path changed here
 		return path, rela_node
 
-	def path_create(self, path: collections.deque, rela_node = None)\
-			-> SilvaTaxonomyDBNode:
+	def path_create(self, path: collections.deque, rela_node=None)\
+                -> SilvaTaxonomyDBNode:
 		"""
 		walk down a path, continue if node already exists at each step, or
 		create them if does not; return the last accessed or created node;
@@ -146,10 +147,10 @@ class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 		# create the rest
 		while path:
 			new_node = SilvaTaxonomyDBNode(0, rela_node,
-				scientific_name = path.popleft()) # path changed here
+				scientific_name=path.popleft())  # path changed here
 			rela_node.add_child(new_node)
-			#assert new_node.scientific_name in rela_node.children
-			#assert new_node.parent is rela_node
+			# assert new_node.scientific_name in rela_node.children
+			# assert new_node.parent is rela_node
 			rela_node = new_node
 		return rela_node
 
@@ -179,7 +180,7 @@ class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 				if len(fields) != 5:
 					raise ValueError("invalid line format: '%s'" % str(fields))
 				# parse the fields
-				path, taxid, level, _, _ = fields # c#3, c#4 unknown
+				path, taxid, level, _, _ = fields  # c#3, c#4 unknown
 				# remove trailing ';' if exists
 				path = collections.deque(path.strip(";").split(";"))
 				assert len(path) >= 1, str(path)
@@ -198,12 +199,12 @@ class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 				acc, taxid = line.strip("\n").split("\t")
 				taxid = int(taxid)
 				# update the taxid
-				node = self.query(taxid = taxid)
+				node = self.query(taxid=taxid)
 				node.accession = acc
 				self.acc_to_node.add_node(node.accession, node)
 		return
 
-	def query(self, taxid = None, *, accession = None) -> SilvaTaxonomyDBNode:
+	def query(self, taxid=None, *, accession=None) -> SilvaTaxonomyDBNode:
 		"""
 		make database query, using any of taxid or accession;
 		if provided with multiple, lower piriority one(s) will be ignored;
@@ -221,10 +222,10 @@ class SilvaTaxonomyDB(SilvaTaxonomyResourceURL):
 
 class DownloadFromSILVA(argparse.Action, SilvaTaxonomyResourceURL):
 	def __call__(self, parser, namespace, values, option_string):
-		output_dir = values # alias to add readability
+		output_dir = values  # alias to add readability
 		for url in [self.url_silva_acc_taxid, self.url_silva_tax_path]:
 			file_name = url.split("/")[-1]
-			self._download(url, output_file = os.path.join(output_dir, file_name))
+			self._download(url, output_file=os.path.join(output_dir, file_name))
 		parser.exit(0)
 		return
 
@@ -238,15 +239,15 @@ class DownloadFromSILVA(argparse.Action, SilvaTaxonomyResourceURL):
 
 def get_args():
 	ap = argparse.ArgumentParser()
-	ap.add_argument("-A", "--silva-acc-taxid", type = str, required = True,
-		metavar = "file",
-		help = "SILVA exported taxonomy accession to taxid map file (required)")
-	ap.add_argument("-P", "--silva-tax-path", type = str, required = True,
-		metavar = "file",
-		help = "SILVA exported taxonomic path file (required)")
-	ap.add_argument("--download", type = str, action = DownloadFromSILVA,
-		metavar = "dir",
-		help = "download data from SILVA and exit; downloaded files will be"
+	ap.add_argument("-A", "--silva-acc-taxid", type=str, required=True,
+		metavar="file",
+		help="SILVA exported taxonomy accession to taxid map file (required)")
+	ap.add_argument("-P", "--silva-tax-path", type=str, required=True,
+		metavar="file",
+		help="SILVA exported taxonomic path file (required)")
+	ap.add_argument("--download", type=str, action=DownloadFromSILVA,
+		metavar="dir",
+		help="download data from SILVA and exit; downloaded files will be"
 			"[%s] and [%s]" % (DownloadFromSILVA.url_silva_acc_taxid,
 			DownloadFromSILVA.url_silva_tax_path))
 	args = ap.parse_args()
@@ -258,7 +259,7 @@ def main():
 	# test load database
 	db = SilvaTaxonomyDB.from_exports(args.silva_tax_path, args.silva_acc_taxid)
 	# maybe write some more test here
-	#db.test() ?
+	# db.test() ?
 	return
 
 

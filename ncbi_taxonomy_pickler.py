@@ -39,9 +39,9 @@ class Struct(list):
 	list wrapped as struct, use attribute name to access data as well as index
 	"""
 	class field(property):
-		def __init__(self, index, type_cast = str, doc = None):
-			super(Struct.field, self).__init__(doc = doc,
-				fget = lambda self: type_cast(self[index]))
+		def __init__(self, index, type_cast=str, doc=None):
+			super(Struct.field, self).__init__(doc=doc,
+				fget=lambda self: type_cast(self[index]))
 			return
 
 
@@ -63,10 +63,10 @@ class NCBITaxonomyNodeName(Struct, NCBIDumpFormat):
 	ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz/readme.txt
 	"""
 	# properties
-	tax_id		= Struct.field(0, type_cast = int)
-	name_txt	= Struct.field(1)
-	unique_name	= Struct.field(2)
-	name_class	= Struct.field(3)
+	tax_id = Struct.field(0, type_cast=int)
+	name_txt = Struct.field(1)
+	unique_name = Struct.field(2)
+	name_class = Struct.field(3)
 
 	def __init__(self, fields):
 		if len(fields) != 4:
@@ -87,7 +87,7 @@ class NCBITaxonomyNodeNameList(list):
 		"""
 		# this property should point to the name object in self whose name class
 		# is 'scientific name'
-		return ("NULL" if self._sci_name_obj is None\
+		return ("NULL" if self._sci_name_obj is None
 			else self._sci_name_obj.name_txt)
 
 	def add_name_obj(self, name_obj):
@@ -112,23 +112,24 @@ class NCBITaxonomyNode(Struct, NCBIDumpFormat):
 	ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz/readme.txt
 	"""
 	# properties
-	tax_id			= Struct.field(0, type_cast = int)
-	parent_tax_id	= Struct.field(1, type_cast = int)
-	rank			= Struct.field(2)
-	embl_code		= Struct.field(3)
-	div_id			= Struct.field(4, type_cast = int)
-	inh_div_flag	= Struct.field(5, type_cast = int) # 0-1 int
-	gc_id			= Struct.field(6, type_cast = int, doc = "genetic code id")
-	inh_gc_flag		= Struct.field(7, type_cast = int) # 0-1 int
-	mgc_id			= Struct.field(8, type_cast = int, doc = "mitochondrial g.c. id")
-	inh_mgc_flag	= Struct.field(9, type_cast = int) # 0-1 int
-	gbk_hid_flag	= Struct.field(10, type_cast = int, doc = "genbank hidden flag")
-	hit_st_flag		= Struct.field(11, type_cast = int, doc = "hidden subtree flag")
-	comments		= Struct.field(12)
+	tax_id = Struct.field(0, type_cast=int)
+	parent_tax_id = Struct.field(1, type_cast=int)
+	rank = Struct.field(2)
+	embl_code = Struct.field(3)
+	div_id = Struct.field(4, type_cast=int)
+	inh_div_flag = Struct.field(5, type_cast=int)  # 0-1 int
+	gc_id = Struct.field(6, type_cast=int, doc="genetic code id")
+	inh_gc_flag = Struct.field(7, type_cast=int)  # 0-1 int
+	mgc_id = Struct.field(8, type_cast=int, doc="mitochondrial g.c. id")
+	inh_mgc_flag = Struct.field(9, type_cast=int)  # 0-1 int
+	gbk_hid_flag = Struct.field(10, type_cast=int, doc="genbank hidden flag")
+	hit_st_flag = Struct.field(11, type_cast=int, doc="hidden subtree flag")
+	comments = Struct.field(12)
 
 	@property
 	def parent(self):
 		return self._parent_node
+
 	@parent.setter
 	def parent(self, value):
 		if not isinstance(value, NCBITaxonomyNode):
@@ -159,7 +160,7 @@ class NCBITaxonomyNode(Struct, NCBIDumpFormat):
 
 	def self_verify(self):
 		if self.parent.tax_id != self.parent_tax_id:
-			raise ValueError("node '%d' parent got '%d' (expected '%d')" %\
+			raise ValueError("node '%d' parent got '%d' (expected '%d')" %
 				(self.tax_id, self.parent.tax_id, self.parent_tax_id))
 		for i in self.name_list:
 			if i.is_scientific_name and i.name_txt != self.scientific_name:
@@ -211,23 +212,23 @@ class NCBITaxonomyDB(collections.UserDict):
 		  path to the names.dmp file
 		"""
 		db = cls()
-		print("nodes file: %s" % os.path.abspath(nodes_dump), file = sys.stderr)
-		print("names file: %s" % os.path.abspath(names_dump), file = sys.stderr)
-		print("loading nodes...", file = sys.stderr)
+		print("nodes file: %s" % os.path.abspath(nodes_dump), file=sys.stderr)
+		print("names file: %s" % os.path.abspath(names_dump), file=sys.stderr)
+		print("loading nodes...", file=sys.stderr)
 		with open(nodes_dump, "r") as fp:
 			for line in fp:
 				node = NCBITaxonomyNode.from_dumped_line(line)
 				db.add_node(node)
-		print("loading names...", file = sys.stderr)
+		print("loading names...", file=sys.stderr)
 		with open(names_dump, "r") as fp:
 			for line in fp:
 				name_obj = NCBITaxonomyNodeName.from_dumped_line(line)
-				target = db.query(tax_id = name_obj.tax_id)
+				target = db.query(tax_id=name_obj.tax_id)
 				target.add_name_obj(name_obj)
 		# now polishing data after load has completed
-		print("finalizing...", file = sys.stderr)
+		print("finalizing...", file=sys.stderr)
 		db._link_parents()
-		print("done", file = sys.stderr)
+		print("done", file=sys.stderr)
 		return db
 
 	def _link_parents(self):
@@ -235,7 +236,7 @@ class NCBITaxonomyDB(collections.UserDict):
 		# instead of parent node's tax_id (node.parent_tax_id)
 		for node in self.values():
 			assert isinstance(node, NCBITaxonomyNode), type(node).mro()
-			node.parent = self.query(tax_id = node.parent_tax_id)
+			node.parent = self.query(tax_id=node.parent_tax_id)
 		return
 
 	############################################################################
@@ -247,14 +248,14 @@ class NCBITaxonomyDB(collections.UserDict):
 		with gzip.open(file, "wb", compresslevel) as fp:
 			# added this since '<stdout>'
 			fn = (os.path.abspath(fp.name) if fp.name != "<stdout>" else fp.name)
-			print("pickling: %s" % fn, file = sys.stderr)
+			print("pickling: %s" % fn, file=sys.stderr)
 			pickle.dump(self, fp)
 		return
 
 	@classmethod
 	def from_pickle(cls, file):
 		with gzip.open(file, "rb") as fp:
-			print("unpickling: %s" % os.path.abspath(fp.name), file = sys.stderr)
+			print("unpickling: %s" % os.path.abspath(fp.name), file=sys.stderr)
 			ret = pickle.load(fp)
 		assert isinstance(ret, NCBITaxonomyDB)
 		return ret
@@ -273,14 +274,15 @@ class NCBITaxonomyDB(collections.UserDict):
 ################################################################################
 class DownloadFromNCBIFTP(argparse.Action):
 	taxdump_url = r"ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz"
+
 	def __call__(self, parser, namespace, values, option_string):
 		if not values:
 			return
 		cmd = ["wget", "-O", values, self.taxdump_url]
 		if subprocess.call(cmd):
 			print("system call to %s had non-zero return value\n"
-				"try manually download file from '%s'"\
-				% (str(cmd), self.taxdump_url), file = sys.stderr)
+				"try manually download file from '%s'"
+				% (str(cmd), self.taxdump_url), file=sys.stderr)
 			parser.exit(1)
 		return parser.exit(0)
 
@@ -303,25 +305,25 @@ def get_args():
 			return new
 
 	ap = argparse.ArgumentParser()
-	ap.add_argument("-n", "--nodes-dump", type = str, required = True,
-		metavar = "nodes.dmp",
-		help = "specify nodes.dump file (required);")
-	ap.add_argument("-a", "--names-dump", type = str, required = True,
-		metavar = "names.dmp",
-		help = "specify names.dump file (required);")
-	ap.add_argument("-o", "--pickle", type = str,
-		metavar = ".pkl.gz",
-		help = "pickle output to this <file> instead of stdout")
-	ap.add_argument("-l", "--compress-level", type = CompressLevel,
-		metavar = "1-9", default = CompressLevel(9),
-		help = "output compress level (default: 9)")
-	ap.add_argument("--download", type = str, action = DownloadFromNCBIFTP,
-		metavar = ".tar.gz",
-		help = "download data from NCBI (%s) and exit;"\
+	ap.add_argument("-n", "--nodes-dump", type=str, required=True,
+		metavar="nodes.dmp",
+		help="specify nodes.dump file (required);")
+	ap.add_argument("-a", "--names-dump", type=str, required=True,
+		metavar="names.dmp",
+		help="specify names.dump file (required);")
+	ap.add_argument("-o", "--pickle", type=str,
+		metavar=".pkl.gz",
+		help="pickle output to this <file> instead of stdout")
+	ap.add_argument("-l", "--compress-level", type=CompressLevel,
+		metavar="1-9", default=CompressLevel(9),
+		help="output compress level (default: 9)")
+	ap.add_argument("--download", type=str, action=DownloadFromNCBIFTP,
+		metavar=".tar.gz",
+		help="download data from NCBI (%s) and exit;"
 			% DownloadFromNCBIFTP.taxdump_url)
-	ap.add_argument("--test-load", type = str, action = TestLoad,
-		metavar = ".pkl.gz",
-		help = "test load a pickled database from <file> and exit; "
+	ap.add_argument("--test-load", type=str, action=TestLoad,
+		metavar=".pkl.gz",
+		help="test load a pickled database from <file> and exit; "
 			"no other action will be performed")
 	args = ap.parse_args()
 	return args

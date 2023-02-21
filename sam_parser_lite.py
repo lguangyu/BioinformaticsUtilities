@@ -24,9 +24,9 @@ class Struct(list):
 	well as indices
 	"""
 	class field(property):
-		def __init__(self, index, type_cast = str, doc = None):
-			super(Struct.field, self).__init__(doc = doc,
-				fget = lambda self: type_cast(self[index]))
+		def __init__(self, index, type_cast=str, doc=None):
+			super(Struct.field, self).__init__(doc=doc,
+				fget=lambda self: type_cast(self[index]))
 			return
 
 
@@ -38,27 +38,28 @@ class SAMParserLite(list):
 		  https://samtools.github.io/hts-specs/SAMv1.pdf
 		"""
 		# field definition as property
-		qname	= Struct.field(0, doc = "query name")
-		flag	= Struct.field(1, type_cast = int)
-		rname	= Struct.field(2, type_cast = SILVARefSeqName, doc = "ref name")
-		pos		= Struct.field(3, type_cast = int)
-		mapq	= Struct.field(4, type_cast = int, doc = "mapping quality")
-		cigar	= Struct.field(5)
-		rnext	= Struct.field(6, doc = "ref name of mate/next read")
-		pnext	= Struct.field(7, type_cast = int, doc = "pos of mate/next read")
-		tlen	= Struct.field(8, type_cast = int, doc = "template length")
-		seq		= Struct.field(9, doc = "query seq")
-		qual	= Struct.field(10, doc = "phred33 quality")
+		qname = Struct.field(0, doc="query name")
+		flag = Struct.field(1, type_cast=int)
+		rname = Struct.field(2, type_cast=SILVARefSeqName, doc="ref name")
+		pos = Struct.field(3, type_cast=int)
+		mapq = Struct.field(4, type_cast=int, doc="mapping quality")
+		cigar = Struct.field(5)
+		rnext = Struct.field(6, doc="ref name of mate/next read")
+		pnext = Struct.field(7, type_cast=int, doc="pos of mate/next read")
+		tlen = Struct.field(8, type_cast=int, doc="template length")
+		seq = Struct.field(9, doc="query seq")
+		qual = Struct.field(10, doc="phred33 quality")
+
 		@property
 		def extra_tags(self):
 			"""
 			optional fields represented as tags
 			"""
-			return self[11:] # all fields not the first 11
+			return self[11:]  # all fields not the first 11
 
-		#def __init__(self, *ka, **kw):
-		#	super(SAMParserLite.SAMAlignment, self).__init__(*ka, **kw)
-		#	return
+		# def __init__(self, *ka, **kw):
+		# super(SAMParserLite.SAMAlignment, self).__init__(*ka, **kw)
+		# return
 
 		@classmethod
 		def from_sam_text(cls, raw_line):
