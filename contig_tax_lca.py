@@ -342,7 +342,7 @@ class Tree(object):
 			ret = ""
 			if self.children:
 				ret += "(" + (",").join([str(c) for c in self.children]) + ")"
-			ret += self.name_newick
+			ret += ("'" + self.name_newick + "'")
 			return ret
 
 		def get_longest_path(self, min_count=1) -> list:
